@@ -18,10 +18,9 @@ package io.gatling.charts.template
 
 import java.time.{ ZoneOffset, ZonedDateTime }
 
-import io.gatling.charts.FileNamingConventions
 import io.gatling.charts.component.Component
 import io.gatling.charts.config.ChartsFiles._
-import io.gatling.charts.stats.{ Group, RunInfo }
+import io.gatling.charts.stats.RunInfo
 import io.gatling.commons.util.GatlingVersion
 import io.gatling.commons.util.StringHelper._
 
@@ -29,8 +28,6 @@ private[charts] abstract class PageTemplate(
     runInfo: RunInfo,
     title: String,
     isDetails: Boolean,
-    requestName: Option[String],
-    group: Option[Group],
     components: Component*
 ) {
   def jsFiles: Seq[String] = (CommonJsFiles ++ components.flatMap(_.jsFiles)).distinct
@@ -41,20 +38,6 @@ private[charts] abstract class PageTemplate(
       case -1 => runInfo.simulationClassName
       case i  => runInfo.simulationClassName.substring(i + 1)
     }
-
-    val pageStats =
-      if (isDetails) {
-        val groupHierarchy = group.map(_.hierarchy).getOrElse(Nil).map(_.toGroupFileName)
-
-        val groupAndRequestHierarchy = requestName match {
-          case Some(req) => groupHierarchy :+ req.toRequestFileName
-          case _         => groupHierarchy
-        }
-
-        s"""var pageStats = stats.contents['${groupAndRequestHierarchy.mkString("'].contents['")}'].stats;"""
-      } else {
-        "var pageStats = stats.stats;"
-      }
 
     val deprecationWarning = {
       val thisReleaseDate = GatlingVersion.ThisVersion.releaseDate
@@ -156,13 +139,11 @@ ${jsFiles.map(jsFile => s"""<script src="js/$jsFile"></script>""").mkString(Eol)
     </div>
 </div>
 <script>
-    $pageStats
     $$(document).ready(function() {
         $$('.simulation-tooltip').popover({trigger:'hover', placement:'left'});
         setDetailsLinkUrl();
         ${if (isDetails) "setDetailsMenu();" else "setGlobalMenu();"}
         setActiveMenu();
-        fillStats(pageStats);
         ${components.map(_.js).mkString}
     });
 </script>

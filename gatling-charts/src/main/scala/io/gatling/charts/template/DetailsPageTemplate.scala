@@ -17,7 +17,7 @@
 package io.gatling.charts.template
 
 import io.gatling.charts.component.Component
-import io.gatling.charts.stats.{ Group, RunInfo }
+import io.gatling.charts.stats.RunInfo
 
-private[charts] final class RequestDetailsPageTemplate(runInfo: RunInfo, title: String, requestName: String, group: Option[Group], components: Component*)
-    extends PageTemplate(runInfo, title, true, Some(requestName), group, components: _*)
+private[charts] final class DetailsPageTemplate(runInfo: RunInfo, title: String, components: Component*)
+    extends PageTemplate(runInfo, title, true, components: _*)

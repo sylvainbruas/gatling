@@ -21,23 +21,22 @@ import java.nio.charset.Charset
 import io.gatling.charts.component._
 import io.gatling.charts.config.ChartsFiles
 import io.gatling.charts.stats._
-import io.gatling.charts.template.RequestDetailsPageTemplate
+import io.gatling.charts.template.DetailsPageTemplate
 import io.gatling.charts.util.Color
 import io.gatling.commons.stats.{ KO, OK, Status }
 import io.gatling.commons.util.Collections._
 import io.gatling.core.config.ReportsConfiguration
 
 private[charts] class RequestDetailsReportGenerator(
-    reportsGenerationInputs: ReportsGenerationInputs,
+    logFileData: LogFileData,
+    rootContainer: GroupContainer,
     chartsFiles: ChartsFiles,
     componentLibrary: ComponentLibrary,
     charset: Charset,
     configuration: ReportsConfiguration
 ) extends ReportGenerator {
   def generate(): Unit = {
-    import reportsGenerationInputs._
-
-    def generateDetailPage(path: String, requestName: String, group: Option[Group]): Unit = {
+    def generateDetailPage(requestName: String, group: Option[Group], stats: RequestStatistics): Unit = {
       def responseTimeDistributionChartComponent: Component = {
         val (okDistribution, koDistribution) = logFileData.responseTimeDistribution(100, Some(requestName), group)
         val okDistributionSeries = new Series(Series.OK, okDistribution, List(Color.Requests.Ok))
@@ -107,15 +106,17 @@ private[charts] class RequestDetailsReportGenerator(
         componentFactory(scatterPlotSuccessSeries, scatterPlotFailuresSeries)
       }
 
+      val ranges = logFileData.numberOfRequestInResponseTimeRanges(Some(requestName), group)
+
+      val path = RequestPath.path(requestName, group)
+
       val template =
-        new RequestDetailsPageTemplate(
+        new DetailsPageTemplate(
           logFileData.runInfo,
           path,
-          requestName,
-          group,
           new SchemaContainerComponent(
-            componentLibrary.getRangesComponent("Response Time Ranges", "requests", large = true),
-            new DetailsStatsTableComponent(configuration.indicators)
+            componentLibrary.getRangesComponent("Response Time Ranges", "requests", ranges, large = true),
+            new DetailsStatsTableComponent(stats, configuration.indicators)
           ),
           new ErrorsTableComponent(logFileData.errors(Some(requestName), group)),
           responseTimeDistributionChartComponent,
@@ -128,9 +129,14 @@ private[charts] class RequestDetailsReportGenerator(
       new TemplateWriter(chartsFiles.requestFile(path)).writeToFile(template.getOutput, charset)
     }
 
-    logFileData.statsPaths.foreach {
-      case RequestStatsPath(request, group) => generateDetailPage(RequestPath.path(request, group), request, group)
-      case _                                =>
+    @SuppressWarnings(Array("org.wartremover.warts.Recursion"))
+    def generateDetailPageRec(groupContainer: GroupContainer): Unit = {
+      groupContainer.requests.values.foreach { requestContainer =>
+        generateDetailPage(requestContainer.name, requestContainer.group, requestContainer.stats)
+      }
+      groupContainer.groups.values.foreach(generateDetailPageRec)
     }
+
+    generateDetailPageRec(rootContainer)
   }
 }

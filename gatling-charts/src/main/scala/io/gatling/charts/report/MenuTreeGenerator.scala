@@ -14,10 +14,19 @@
  * limitations under the License.
  */
 
-package io.gatling.charts.template
+package io.gatling.charts.report
 
-import io.gatling.charts.component.Component
-import io.gatling.charts.stats.{ Group, RunInfo }
+import java.nio.charset.Charset
 
-private[charts] final class GroupDetailsPageTemplate(runInfo: RunInfo, group: Group, components: Component*)
-    extends PageTemplate(runInfo, group.name, true, None, Some(group), components: _*)
+import io.gatling.charts.config.ChartsFiles
+import io.gatling.charts.template.{ ConsoleTemplate, MenuTreeTemplate }
+
+private[charts] final class MenuTreeGenerator(
+    rootContainer: GroupContainer,
+    chartsFiles: ChartsFiles,
+    charset: Charset
+) extends ReportGenerator {
+
+  override def generate(): Unit =
+    new TemplateWriter(chartsFiles.menuTreeJsFile).writeToFile(new MenuTreeTemplate(rootContainer).getOutput, charset)
+}
